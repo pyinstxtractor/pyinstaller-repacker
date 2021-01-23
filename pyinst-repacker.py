@@ -311,7 +311,14 @@ class CArchive:
                 op = output_dir.joinpath(filepath)
                 if os.sep in filepath:
                     op.parent.mkdir(parents=True, exist_ok=True)
-                op.write_bytes(data)
+
+                if entry.type_data in ('s', 'S'):
+                    op = op.with_suffix(".pyc")
+                    _writePyc(str(op), self.pyver, data)
+                
+                else:
+                    op.write_bytes(data)
+
                 entry.filepath = str(op)
             else:
                 pyz_extract_dir = output_dir.joinpath(filepath)
@@ -389,10 +396,15 @@ class CArchiveBuilder:
             type_data = e.attrib["type_data"]
 
             if type_data not in ("z", "Z"):
-                compressed_data = data = Path(filepath).read_bytes()
+                if type_data in ("s", "S"):
+                    data = _readPyc(filepath, carchive.pyver)
+                else:
+                    data = Path(filepath).read_bytes()
 
                 if compression_flags == 1:
                     compressed_data = zlib.compress(data, 9)
+                else:
+                    compressed_data = data
 
                 carchiveentry = CArchiveEntry(
                     -1,
