@@ -120,7 +120,7 @@ class PYZArchive:
                 },
             )
 
-        return root    
+        return root
 
     def extract(self, output_dir: Path, pyver):
         print(f"        [+] Extracting PYZArchive (Total entries: {len(self.entries)})")
@@ -312,10 +312,10 @@ class CArchive:
                 if os.sep in filepath:
                     op.parent.mkdir(parents=True, exist_ok=True)
 
-                if entry.type_data in ('s', 'S'):
+                if entry.type_data in ("s", "S"):
                     op = op.with_suffix(".pyc")
                     _writePyc(str(op), self.pyver, data)
-                
+
                 else:
                     op.write_bytes(data)
 
@@ -523,7 +523,7 @@ def extract(exe_file):
     base_dir.mkdir(exist_ok=True)
 
     config = configparser.ConfigParser()
-    config['DEFAULT']['input_name'] = os.path.basename(exe_file)
+    config["DEFAULT"]["input_name"] = os.path.basename(exe_file)
     config.write(base_dir.joinpath("config.ini").open("w"))
 
     overlay_bytes = bytes(pe.overlay)
@@ -568,7 +568,7 @@ def build(input_dir):
 
     config = configparser.ConfigParser()
     config.read(config_path)
-    input_file = config['DEFAULT']['input_name']
+    input_file = config["DEFAULT"]["input_name"]
 
     if filelist_path.exists():
         print("[+] Loading filelist")
