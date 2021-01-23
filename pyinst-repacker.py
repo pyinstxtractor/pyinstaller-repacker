@@ -316,6 +316,10 @@ class CArchive:
                     op = op.with_suffix(".pyc")
                     _writePyc(str(op), self.pyver, data)
 
+                elif entry.type_data in ("m", "M"):
+                    op = op.with_suffix(".pyc")
+                    op.write_bytes(data)
+
                 else:
                     op.write_bytes(data)
 
