@@ -1,6 +1,6 @@
 # Pyinstaller repacker
 
-Tool to extract and repack pyinstaller generated windows executables. Supports recent versions of pyinstaller. Python 3 only.
+Tool to extract and repack pyinstaller generated windows executables. Supports recent versions of pyinstaller. Python 3 only. Doesn't support encrypted PYZ archives.
 
 # Dependencies
 
