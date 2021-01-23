@@ -25,7 +25,7 @@ To build exe from this directory run,
 $ python pyinst-repacker.py --build test.exe-repacker
 ```
 
-Output file will be written to `test.exe-repacker\generated.exe`.
+Repacked exe will be written to `test.exe-repacker\test-repacked.exe`.
 
 # License
 
