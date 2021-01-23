@@ -2,18 +2,48 @@ import os
 import io
 import zlib
 import struct
+import os.path
 import marshal
 import argparse
+import configparser
+
 from pathlib import Path
 from uuid import uuid4 as uniquename
 from importlib.util import MAGIC_NUMBER
-import lxml.etree as ET
-import os.path
+
 import lief
+import lxml.etree as ET
 
 PYINST21_COOKIE_SIZE = 24 + 64
 MAGIC = b"MEI\014\013\012\013\016"  # Magic number which identifies pyinstaller
 pyc_magic = MAGIC_NUMBER
+
+
+def _writePyc(filename, pyver, data):
+    with open(filename, "wb") as pycFile:
+        pycFile.write(pyc_magic)  # pyc magic
+
+        if pyver >= 37:  # PEP 552 -- Deterministic pycs
+            pycFile.write(b"\0" * 4)  # Bitfield
+            pycFile.write(b"\0" * 8)  # (Timestamp + size) || hash
+
+        else:
+            pycFile.write(b"\0" * 4)  # Timestamp
+            if pyver >= 33:
+                pycFile.write(b"\0" * 4)  # Size parameter added in Python 3.3
+
+        pycFile.write(data)
+
+
+def _readPyc(filename, pyver):
+    data = Path(filename).read_bytes()
+
+    if pyver >= 37:
+        data = data[16:]
+    elif pyver >= 33:
+        data = data[12:]
+
+    return data
 
 
 class PYZArchiveEntry:
@@ -90,22 +120,7 @@ class PYZArchive:
                 },
             )
 
-        return root
-
-    def _writePyc(self, filename, pyver, data):
-        with open(filename, "wb") as pycFile:
-            pycFile.write(pyc_magic)  # pyc magic
-
-            if pyver >= 37:  # PEP 552 -- Deterministic pycs
-                pycFile.write(b"\0" * 4)  # Bitfield
-                pycFile.write(b"\0" * 8)  # (Timestamp + size) || hash
-
-            else:
-                pycFile.write(b"\0" * 4)  # Timestamp
-                if pyver >= 33:
-                    pycFile.write(b"\0" * 4)  # Size parameter added in Python 3.3
-
-            pycFile.write(data)
+        return root    
 
     def extract(self, output_dir: Path, pyver):
         print(f"        [+] Extracting PYZArchive (Total entries: {len(self.entries)})")
@@ -131,7 +146,7 @@ class PYZArchive:
             if os.sep in filepath:
                 op.parent.mkdir(parents=True, exist_ok=True)
 
-            self._writePyc(str(op), pyver, zlib.decompress(data))
+            _writePyc(str(op), pyver, zlib.decompress(data))
             entry.filepath = str(op)
 
 
@@ -315,12 +330,7 @@ class PYZArchiveBuilder:
             filepath = e.attrib["filepath"]
             ispkg = e.attrib["ispkg"]
 
-            data = Path(filepath).read_bytes()
-
-            if pyver >= 37:
-                data = data[16:]
-            elif pyver >= 33:
-                data = data[12:]
+            data = _readPyc(filepath, pyver)
 
             pyzarchiveentry = PYZArchiveEntry(
                 internal_name, filepath, ispkg, -1, len(data)
@@ -500,6 +510,10 @@ def extract(exe_file):
     print(f"[+] Creating output directory {base_dir}")
     base_dir.mkdir(exist_ok=True)
 
+    config = configparser.ConfigParser()
+    config['DEFAULT']['input_name'] = os.path.basename(exe_file)
+    config.write(base_dir.joinpath("config.ini").open("w"))
+
     overlay_bytes = bytes(pe.overlay)
     overlay_size = len(overlay_bytes)
 
@@ -520,7 +534,7 @@ def extract(exe_file):
     carchive = CArchive()
     carchive.parse_from_file(carchive_dir.joinpath("carchive"))
 
-    extract_dir = base_dir.joinpath("output")
+    extract_dir = base_dir.joinpath("tmp")
     extract_dir.mkdir(exist_ok=True)
     carchive.extract(extract_dir)
 
@@ -534,6 +548,15 @@ def extract(exe_file):
 def build(input_dir):
     input_path = Path(input_dir)
     filelist_path = input_path.joinpath("filelist.xml")
+    config_path = input_path.joinpath("config.ini")
+
+    if not config_path.exists():
+        print(f"[!] Missing {config_path}")
+        return
+
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    input_file = config['DEFAULT']['input_name']
 
     if filelist_path.exists():
         print("[+] Loading filelist")
@@ -544,8 +567,9 @@ def build(input_dir):
 
         if bootloader_path.exists():
             bootloader = bootloader_path.read_bytes()
-            print(f"[+] Writing new exe to {input_path.joinpath('generated.exe')}")
-            input_path.joinpath("generated.exe").write_bytes(bootloader + carchdata)
+            output_file = os.path.splitext(input_file)[0] + "-repacked.exe"
+            print(f"[+] Writing new exe to {output_file}")
+            input_path.joinpath(output_file).write_bytes(bootloader + carchdata)
             print("[+] Done!")
 
         else:
