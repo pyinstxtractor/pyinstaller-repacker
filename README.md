@@ -25,7 +25,15 @@ To build exe from this directory run,
 $ python pyinst-repacker.py build test.exe-repacker
 ```
 
+Optionally use the `--scanpy` argument to use the corresponding .py file instead of .pyc (if it exists).
+
+```
+$ python pyinst-repacker.py build --scanpy test.exe-repacker
+```
+
 Repacked exe will be written to `test.exe-repacker\test-repacked.exe`.
+
+
 
 # License
 

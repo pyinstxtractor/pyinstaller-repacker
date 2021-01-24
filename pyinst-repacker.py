@@ -5,6 +5,7 @@ import struct
 import os.path
 import marshal
 import argparse
+import compileall
 import configparser
 
 from pathlib import Path
@@ -312,7 +313,7 @@ class CArchive:
                 if os.sep in filepath:
                     op.parent.mkdir(parents=True, exist_ok=True)
 
-                if entry.type_data in ("s", "S"):
+                if entry.type_data in ("s"):
                     op = op.with_suffix(".pyc")
                     _writePyc(str(op), self.pyver, data)
 
@@ -333,13 +334,23 @@ class CArchive:
 
 class PYZArchiveBuilder:
     @staticmethod
-    def load_tree(tree, pyver):
+    def load_tree(tree, pyver, scanpy):
         pyzarchive = PYZArchive()
 
         for e in tree.findall(".//PYZArchive/"):
             internal_name = str(e.attrib["internal_name"])
             filepath = e.attrib["filepath"]
             ispkg = e.attrib["ispkg"]
+
+            if scanpy:
+                # Check if a corresponding .py exist
+                py_filepath = Path(filepath).with_suffix(".py")
+                if py_filepath.is_file():
+                    print(f"    - Compiling {py_filepath}", end="")
+                    if compileall.compile_file(str(py_filepath), legacy=True, quiet=2):
+                        print(" [OK]")
+                    else:
+                        print(" [FAIL]")
 
             data = _readPyc(filepath, pyver)
 
@@ -385,7 +396,7 @@ class PYZArchiveBuilder:
 
 class CArchiveBuilder:
     @staticmethod
-    def load_tree_from_file(xml_file):
+    def load_tree_from_file(xml_file, scanpy):
         tree = ET.parse(xml_file)
 
         carchive = CArchive()
@@ -400,7 +411,22 @@ class CArchiveBuilder:
             type_data = e.attrib["type_data"]
 
             if type_data not in ("z", "Z"):
-                if type_data in ("s", "S"):
+                # ARCHIVE_ITEM_PYSOURCE
+                # ARCHIVE_ITEM_PYPACKAGE
+                # ARCHIVE_ITEM_PYMODULE
+                if scanpy and type_data in ("s", "m", "M"):
+                    # Check if a corresponding .py exist
+                    py_filepath = Path(filepath).with_suffix(".py")
+                    if py_filepath.is_file():
+                        print(f"    - Compiling {py_filepath}", end="")
+                        if compileall.compile_file(
+                            str(py_filepath), legacy=True, quiet=2
+                        ):
+                            print(" [OK]")
+                        else:
+                            print(" [FAIL]")
+
+                if type_data in ("s"):
                     data = _readPyc(filepath, carchive.pyver)
                 else:
                     data = Path(filepath).read_bytes()
@@ -421,7 +447,7 @@ class CArchiveBuilder:
                 )
                 carchive.add_entry_with_data(carchiveentry, compressed_data)
             else:
-                pyzarchive = PYZArchiveBuilder.load_tree(e, carchive.pyver)
+                pyzarchive = PYZArchiveBuilder.load_tree(e, carchive.pyver, scanpy)
                 carchiveentry = CArchiveEntry(
                     -1, -1, -1, compression_flags, type_data, internal_name, ""
                 )
@@ -516,7 +542,7 @@ class CArchiveBuilder:
         return carchivedata.getvalue()
 
 
-def extract(exe_file):
+def do_extract(exe_file):
     pe_bytes = open(exe_file, "rb").read()
     pe_size = len(pe_bytes)
 
@@ -561,7 +587,7 @@ def extract(exe_file):
     print("[+] Done!")
 
 
-def build(input_dir):
+def do_build(input_dir, scanpy):
     input_path = Path(input_dir)
     filelist_path = input_path.joinpath("filelist.xml")
     config_path = input_path.joinpath("config.ini")
@@ -576,7 +602,7 @@ def build(input_dir):
 
     if filelist_path.exists():
         print("[+] Loading filelist")
-        carchive = CArchiveBuilder.load_tree_from_file(str(filelist_path))
+        carchive = CArchiveBuilder.load_tree_from_file(str(filelist_path), scanpy)
         carchdata = CArchiveBuilder.build(carchive)
 
         bootloader_path = input_path.joinpath("BOOTLOADER/bootloader.exe")
@@ -604,11 +630,17 @@ if __name__ == "__main__":
     extract_parser.add_argument("file", help="Path to the exe")
 
     build_parser = subparsers.add_parser("build", help="Command to build an exe")
+    build_parser.add_argument(
+        "--scanpy",
+        help="Use corresponding .py file instead of .pyc (if it exists)",
+        dest="scanpy",
+        action="store_true",
+    )
     build_parser.add_argument("directory", help="Path to the repacker directory")
     args = parser.parse_args()
 
     if args.command == "extract":
-        extract(args.file)
+        do_extract(args.file)
 
     elif args.command == "build":
-        build(args.directory)
+        do_build(args.directory, args.scanpy)
