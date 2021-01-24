@@ -598,20 +598,17 @@ def build(input_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
-        "-e", "--extract", help="Extract the exe", action="store_true", dest="extract"
-    )
-    group.add_argument(
-        "-b", "--build", help="Build exe", action="store_true", dest="build"
-    )
-    parser.add_argument("file", help="The file or directory name")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    extract_parser = subparsers.add_parser("extract", help="Command to extract the exe")
+    extract_parser.add_argument("file", help="Path to the exe")
+
+    build_parser = subparsers.add_parser("build", help="Command to build an exe")
+    build_parser.add_argument("directory", help="Path to the repacker directory")
     args = parser.parse_args()
 
-    if args.extract:
-        exe_file = args.file
-        extract(exe_file)
+    if args.command == "extract":
+        extract(args.file)
 
-    elif args.build:
-        input_dir = args.file
-        build(input_dir)
+    elif args.command == "build":
+        build(args.directory)

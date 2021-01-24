@@ -14,7 +14,7 @@ pip install lief
 To extract a exe run
 
 ```
-$ python pyinst-repacker.py --extract test.exe
+$ python pyinst-repacker.py extract test.exe
 ```
 
 This will extract the exe under the directory `test.exe-repacker`.
@@ -22,7 +22,7 @@ This will extract the exe under the directory `test.exe-repacker`.
 To build exe from this directory run,
 
 ```
-$ python pyinst-repacker.py --build test.exe-repacker
+$ python pyinst-repacker.py build test.exe-repacker
 ```
 
 Repacked exe will be written to `test.exe-repacker\test-repacked.exe`.
