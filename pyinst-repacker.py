@@ -334,7 +334,7 @@ class CArchive:
 
 class PYZArchiveBuilder:
     @staticmethod
-    def load_tree(tree, pyver, scanpy):
+    def load_tree(tree, pyver, scanpy, ignore_missing):
         pyzarchive = PYZArchive()
 
         for e in tree.findall(".//PYZArchive/"):
@@ -351,6 +351,10 @@ class PYZArchiveBuilder:
                         print(" [OK]")
                     else:
                         print(" [FAIL]")
+
+            if not Path(filepath).exists() and ignore_missing:
+                print(f"[!] Ignoring missing file {filepath}")
+                continue
 
             data = _readPyc(filepath, pyver)
 
@@ -396,7 +400,7 @@ class PYZArchiveBuilder:
 
 class CArchiveBuilder:
     @staticmethod
-    def load_tree_from_file(xml_file, scanpy):
+    def load_tree_from_file(xml_file, scanpy, ignore_missing):
         tree = ET.parse(xml_file)
 
         carchive = CArchive()
@@ -426,6 +430,10 @@ class CArchiveBuilder:
                         else:
                             print(" [FAIL]")
 
+                if not Path(filepath).exists() and ignore_missing:
+                    print(f"[!] Ignoring missing file {filepath}")
+                    continue
+
                 if type_data in ("s"):
                     data = _readPyc(filepath, carchive.pyver)
                 else:
@@ -447,7 +455,7 @@ class CArchiveBuilder:
                 )
                 carchive.add_entry_with_data(carchiveentry, compressed_data)
             else:
-                pyzarchive = PYZArchiveBuilder.load_tree(e, carchive.pyver, scanpy)
+                pyzarchive = PYZArchiveBuilder.load_tree(e, carchive.pyver, scanpy, ignore_missing)
                 carchiveentry = CArchiveEntry(
                     -1, -1, -1, compression_flags, type_data, internal_name, ""
                 )
@@ -587,7 +595,7 @@ def do_extract(exe_file):
     print("[+] Done!")
 
 
-def do_build(input_dir, scanpy):
+def do_build(input_dir, scanpy, ignore_missing):
     input_path = Path(input_dir)
     filelist_path = input_path.joinpath("filelist.xml")
     config_path = input_path.joinpath("config.ini")
@@ -602,7 +610,7 @@ def do_build(input_dir, scanpy):
 
     if filelist_path.exists():
         print("[+] Loading filelist")
-        carchive = CArchiveBuilder.load_tree_from_file(str(filelist_path), scanpy)
+        carchive = CArchiveBuilder.load_tree_from_file(str(filelist_path), scanpy, ignore_missing)
         carchdata = CArchiveBuilder.build(carchive)
 
         bootloader_path = input_path.joinpath("BOOTLOADER/bootloader.exe")
@@ -636,6 +644,14 @@ if __name__ == "__main__":
         dest="scanpy",
         action="store_true",
     )
+
+    build_parser.add_argument(
+        "--ignore-missing",
+        help="Ignore missing files",
+        dest="ignore_missing",
+        action="store_true",
+    )
+
     build_parser.add_argument("directory", help="Path to the repacker directory")
     args = parser.parse_args()
 
@@ -643,4 +659,4 @@ if __name__ == "__main__":
         do_extract(args.file)
 
     elif args.command == "build":
-        do_build(args.directory, args.scanpy)
+        do_build(args.directory, args.scanpy, args.ignore_missing)
