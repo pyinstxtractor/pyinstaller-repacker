@@ -584,7 +584,7 @@ def do_extract(exe_file):
     carchive = CArchive()
     carchive.parse_from_file(carchive_dir.joinpath("carchive"))
 
-    extract_dir = base_dir.joinpath("tmp")
+    extract_dir = base_dir.joinpath("FILES")
     extract_dir.mkdir(exist_ok=True)
     carchive.extract(extract_dir)
 
