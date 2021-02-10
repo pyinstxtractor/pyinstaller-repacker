@@ -1,4 +1,4 @@
-# Pyinstaller repacker
+# Pyinstaller Repacker
 
 Tool to extract and repack pyinstaller generated windows executables. Supports recent versions of pyinstaller. Python 3 only. Doesn't support encrypted PYZ archives.
 
@@ -30,6 +30,8 @@ Optionally use the `--scanpy` argument to use the corresponding .py file instead
 ```
 $ python pyinst-repacker.py build --scanpy test.exe-repacker
 ```
+
+The `--ignore-missing` option can used during build to ignore any non-existent files. Useful when trying to rebuild after deleting some files.
 
 Repacked exe will be written to `test.exe-repacker\test-repacked.exe`.
 
